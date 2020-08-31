@@ -1,13 +1,16 @@
 @doc Markdown.doc"""
- AbstractAlgebra is a pure Julia package for computational abstract algebra.
+ AbstractAlgebra is a pure Julia package for computational abstract algebra. 
 
- For more information see https://github.com/Nemocas/AbstractAlgebra.jl
+ For more information see https://github.com/Nemocas/AbstractAlgebra.jl  
 """
 module AbstractAlgebra
 
 using Markdown
 
 using InteractiveUtils
+
+using Primes
+
 
 # A list of all symbols external packages should not import from AbstractAlgebra
 import_exclude = [:import_exclude, :QQ, :ZZ,
@@ -17,13 +20,11 @@ import_exclude = [:import_exclude, :QQ, :ZZ,
                   :promote_rule,
                   :Set, :Module, :Ring, :Group, :Field]
 
-# If you want to add methods to functions in LinearAlgebra they should be
-# imported here and in Generic.jl, and exported below.
-# They should not be imported/exported anywhere else.
-
-import LinearAlgebra: det, issymmetric, norm, nullspace, rank, transpose!, hessenberg
+import LinearAlgebra: det, norm, nullspace, rank, transpose!, hessenberg, dot, I
 
 import LinearAlgebra: lu, lu!, tr
+
+export nullspace
 
 ################################################################################
 #
@@ -71,10 +72,6 @@ function div(a::T, b::T) where T
   return Base.div(a, b)
 end
 
-function inv(a::T) where T
-  return Base.inv(a)
-end
-
 function numerator(a::T, canonicalise::Bool=true) where T
   return Base.numerator(a, canonicalise)
 end
@@ -83,15 +80,11 @@ function denominator(a::T, canonicalise::Bool=true) where T
   return Base.denominator(a, canonicalise)
 end
 
-# If you want to add methods to functions in Base they should be imported here
-# and in Generic.jl.
-# They should not be imported/exported anywhere else.
-
 import Base: Array, abs, acos, acosh, adjoint, asin, asinh, atan, atanh, bin,
              ceil, checkbounds, conj, convert, cmp, cos, cosh, cospi, cot,
              coth, dec, deepcopy, deepcopy_internal, expm1, exponent, fill,
              floor, gcd, gcdx, getindex, hash, hcat, hex, hypot, intersect,
-             invmod, isequal, isfinite, isless, isone, isqrt, isreal,
+             inv, invmod, isequal, isfinite, isless, isone, isqrt, isreal,
              iszero, lcm, ldexp, length, log, log1p, mod, ndigits, oct, one,
              parent, parse, precision, rand, Rational, rem, reverse, setindex!,
              show, sincos, similar, sign, sin, sinh, sinpi, size, string, tan,
@@ -123,10 +116,7 @@ export create_accessors, get_handle, package_handle, zeros,
 
 export error_dim_negative, ErrorConstrDimMismatch
 
-export crt, factor
-
-function expressify
-end
+export crt
 
 ###############################################################################
 # Macros for fancy printing and extending objects when desired
@@ -136,8 +126,8 @@ end
 # struct bla..
 # ..
 # end
-#
-# to
+# 
+# to 
 #
 # struct bla ..
 # @declare_other
@@ -263,7 +253,7 @@ macro show_special_elem(io, e)
 end
 
 ###############################################################################
-# generic fall back if no immediate coercion is possible
+# generic fall back if no imediate coercion is possible
 # can/ should be called for more generic general coercion mechanisms
 
 #tries to turn b into an element of a
@@ -278,7 +268,7 @@ end
 # (a::Ring)(b::elem_type(a))
 #   parent(b) == a && return a
 #   return force_coerce(a, b)
-#
+# 
 function force_coerce(a, b, throw_error::Type{Val{T}} = Val{true}) where {T}
   if throw_error === Val{true}
     throw(error("coercion not possible"))
@@ -289,7 +279,7 @@ end
 
 #to allow +(a::T, b::T) where a, b have different parents, but
 # a common over structure
-# designed(?) to be minimally invasive in AA and Nemo, but filled with
+# designed(?) to be minimally invasive in AA and Nemo, but filled with 
 # content in Hecke/Oscar
 function force_op(op::Function, throw_error::Type{Val{T}}, a...) where {T}
   if throw_error === Val{true}
@@ -343,98 +333,97 @@ include("julia/JuliaTypes.jl")
 
 ###############################################################################
 #
-#   Generic algorithms defined on abstract types
-#
-###############################################################################
-
-include("algorithms/generic_functions.jl")
-include("algorithms/LaurentPoly.jl")
-
-###############################################################################
-#
 #   Generic submodule
 #
 ###############################################################################
 
 include("Generic.jl")
 
-# Do not import div, divrem, exp, inv, sqrt, numerator and denominator
-# as we have our own
+# Do not import numerator and denominator as we have our own
 import .Generic: add!, addeq!, addmul!, add_column, add_column!, add_row,
-                 add_row!, basis, cached, can_solve_left_reduced_triu,
+                 add_row!, base_ring, basis, cached, canonical_unit, can_solve_left_reduced_triu,
+                 change_base_ring,
                  character, characteristic, charpoly, charpoly_danilevsky!,
                  charpoly_danilevsky_ff!, charpoly_hessenberg!, chebyshev_t,
-                 chebyshev_u, _check_dim, check_composable,
+                 chebyshev_u, _check_dim, check_composable, check_parent,
                  codomain, coeff, coeffs, ncols,
                  combine_like_terms!, compose, content, cycles,
+                 descomp_total,
                  data, deflate, deflation, degree, degrees,
-                 dense_matrix_type, derivative, det_clow,
+                 dense_matrix_type, derivative, det, det_clow,
                  det_df, det_fflu, det_popov, diagonal_matrix, dim, disable_cache!,
-                 discriminant,
+                 discriminant, displayed_with_minus_in_front,
                  divexact, divexact_left, divexact_right, divides,
                  domain, downscale,
                  elem_type, enable_cache!, evaluate, exp_gcd,
                  exponent, exponent_vector, exponent_vectors,
                  extended_weak_popov, extended_weak_popov_with_transform,
                  finish, fflu!,
-                 fflu, find_pivot_popov, fit!, gcd,
-                 get_field, gcdinv, gcdx,
+                 fflu, find_pivot_popov, fit!, gcd, gen,
+                 gens, get_field, gcdinv, gcdx,
                  gram, has_left_neighbor, has_bottom_neighbor, hash,
                  hessenberg!, hnf, hnf_cohen, hnf_cohen_with_transform,
                  hnf_kb, hnf_kb_with_transform,
                  hnf_minors, hnf_minors_with_transform,
                  hnf_with_transform, hnf_via_popov,
-                 hnf_via_popov_with_transform,
-                 hooklength, identity_map, identity_matrix, image,
-                 image_map, image_fn, inflate, integral, interpolate,
+                 hnf_via_popov_with_transform, 
+                 GTPattern, genera_patrones, prematuro_pesos,
+                 Θ, tablon_standar_asociado_a_semiestandar,
+                 primero_lexi, encontrar_esquina, encontrar_malo_imp!,
+                 determinar_coeficiente_irrep_yamanouchi, generar_matriz, indice_tablon_semistandard,
+                 hooklength, axialdistance, identity_map, identity_matrix, image, content,
+                 calcula_proto_permutacion, calcular_sα, genera_funcion,
+                 image_map, image_fn, inflate, integral, interpolate, inv,
                  inv!, invariant_factors,
                  inverse_fn, inverse_image_fn,
                  inverse_mat, reverse_rows, reverse_rows!,
+                 reverse_cols, reverse_cols!,
                  invmod, involves_at_most_one_variable,
-                 iscompatible, isconstant, isdegree, ishessenberg,
-                 ishnf, ishomogeneous, isisomorphic,
+                 iscompatible, isconstant, isdegree,
+                 isdomain_type, isexact_type, isgen, ishessenberg,
+                 ishnf, ishomogeneous, isisomorphic, ismonomial,
                  isone, isreverse, isrimhook,
-                 isrref, issquare, issubmodule, isterm, isterm_recursive,
+                 isrref, issquare, issubmodule, isterm,
                  isunit, iszero_row, iszero_column,
                  kernel, kronecker_product,
-                 laurent_ring, lc, lcm, left_kernel, length,
+                 laurent_ring, lc, lcm, lead, left_kernel, length,
                  leglength, lm, lt, main_variable,
                  main_variable_extract, main_variable_insert,
                  map1, map2, map_from_func, map_coeffs, map_entries, map_entries!,
                  map_with_preimage_from_func, map_with_retraction,
                  map_with_retraction_from_func,
                  map_with_section, map_with_section_from_func, mat, matrix,
+                 encontrar_posicion,
                  matrix_repr, max_fields, max_precision, minors, minpoly, mod,
                  modulus, monomial, monomial!, monomials,
                  monomial_iszero, monomial_set!, monomial_to_newton!,
                  MPolyBuildCtx, mul!, mul_classical, mul_karatsuba, mul_ks,
                  mullow, mulmod, multiply_column, multiply_column!,
-                 multiply_row, multiply_row!,
+                 multiply_row, multiply_row!, needs_parentheses,
                  newton_to_monomial!, ngens, normalise, nrows, nvars, O, one,
                  order, ordering, parent_type, parity, partitionseq, Perm, perm,
                  permtype, @perm_str, polcoeff, pol_length, powmod,
                  pow_multinomial, popov, popov_with_transform,
                  precision, preimage, preimage_map, primpart, pseudodivrem,
-                 pseudo_inv, pseudorem, push_term!, randmat_triu,
+                 pseudo_inv, pseudorem, push_term!, rank, randmat_triu,
                  randmat_with_rank, rand_ordering, rank_profile_popov, remove,
                  renormalize!, rels, rescale!, resultant, resultant_ducos,
                  resultant_euclidean, resultant_subresultant,
                  resultant_sylvester, resx, retraction_map, reverse,
-                 reverse_cols, reverse_cols!,
                  right_kernel, rref, rref!, section_map, setcoeff!,
                  set_exponent_vector!, set_field!, set_length!, set_limit!,
-                 setpermstyle, set_precision!, set_valuation!, size, shift_left,
+                 setpermstyle, set_prec!, set_val!, size, shift_left,
                  shift_right, show_minus_one, similarity!, snf, snf_kb,
                  snf_kb_with_transform, snf_with_transform, solve, solve_left,
                  solve_rational, solve_triu, sort_terms!, sub, subst, summands,
                  supermodule, swap_cols, swap_cols!, swap_rows, swap_rows!,
                  sylvester_matrix, symbols, term, terms, total_degree,
-                 to_univariate, truncate, typed_hcat, typed_hvcat,
+                 to_univariate, trail, truncate, typed_hcat, typed_hvcat,
                  upscale, valuation, var, var_index, vars, weak_popov,
                  weak_popov_with_transform, zero, zero!, zero_matrix,
                  @PolynomialRing, MatrixElem
 
-# Do not export inv, div, divrem, exp, sqrt, numerator and denominator as we define our own
+# Do not export divrem, exp, sqrt, numerator and denominator as we define our own
 export add!, addeq!, addmul!, addmul_delayed_reduction!, addmul!, add_column, add_column!, add_row, add_row!, base_ring, cached,
                  canonical_unit, can_solve_left_reduced_triu,
                  change_base_ring, character,
@@ -443,6 +432,7 @@ export add!, addeq!, addmul!, addmul_delayed_reduction!, addmul!, add_column, ad
                  chebyshev_u, _check_dim, check_composable, check_parent,
                  codomain, coeff, coeffs, ncols,
                  combine_like_terms!, compose, content, cycles,
+                 descomp_total,
                  data, deflate, deflation, degree, degrees,
                  dense_matrix_type, derivative, det, det_clow,
                  det_df, det_fflu, det_popov, diagonal_matrix, dim, disable_cache!,
@@ -462,17 +452,23 @@ export add!, addeq!, addmul!, addmul_delayed_reduction!, addmul!, add_column, ad
                  hnf_minors, hnf_minors_with_transform,
                  hnf_with_transform, hnf_via_popov,
                  hnf_via_popov_with_transform,
-                 hooklength, identity_map, identity_matrix, image,
-                 image_map, image_fn, inflate, integral, interpolate,
+                 GTPattern, genera_patrones, prematuro_pesos,
+                 Θ, tablon_standar_asociado_a_semiestandar,
+                 primero_lexi, encontrar_esquina, encontrar_malo_imp!,
+                 determinar_coeficiente_irrep_yamanouchi, generar_matriz, indice_tablon_semistandard,
+                 hooklength, axialdistance, identity_map, identity_matrix, image, content,
+                 calcula_proto_permutacion, calcular_sα, genera_funcion,
+                 image_map, image_fn, inflate, integral, interpolate, inv,
                  inv!, invariant_factors,
                  inverse_fn, inverse_image_fn,
                  inverse_mat, invmod, reverse_rows,
+                 reverse_rows!, reverse_cols, reverse_cols!,
                  iscompatible, isconstant, isdegree,
                  isdomain_type, isexact_type, isgen, ishessenberg,
-                 ishnf, ishomogeneous, isisomorphic, ismonomial, ismonomial_recursive,
+                 ishnf, ishomogeneous, isisomorphic, ismonomial,
                  isnegative, isone, isreverse,
-                 isrimhook, isrref, issquare, issubmodule, issymmetric,
-                 isterm, isterm_recursive, isunit, iszero,
+                 isrimhook, isrref, issquare, issubmodule,
+                 isterm, isunit, iszero,
                  iszero_row, iszero_column, kernel,
                  kronecker_product, laurent_ring,
                  lc, lcm, lead, left_kernel, leglength,
@@ -481,6 +477,7 @@ export add!, addeq!, addmul!, addmul_delayed_reduction!, addmul!, add_column, ad
                  map1, map2, map_from_func, map_coeffs, map_entries, map_entries!, map_with_preimage_from_func,
                  map_with_retraction, map_with_retraction_from_func,
                  map_with_section, map_with_section_from_func,
+                 encontrar_posicion,
                  mat, matrix, matrix_repr, max_fields,
                  max_precision, minors, minpoly, mod,
                  modulus, monomial, monomial!, monomials,
@@ -489,20 +486,19 @@ export add!, addeq!, addmul!, addmul_delayed_reduction!, addmul!, add_column, ad
                  mul_karatsuba, mul_ks, mul_red!, mullow, mulmod,
                  multiply_column, multiply_column!, multiply_row,
                  multiply_row!, needs_parentheses, newton_to_monomial!, ngens,
-                 normalise, nrows, nullspace, nvars, O, one, order, ordering,
-                 parent_type, parity, partitionseq, Perm, perm, permtype,
-                 @perm_str, polcoeff, pol_length, powmod, pow_multinomial,
-                 popov, popov_with_transform, powers, ppio, precision, preimage,
+                 normalise, nrows, nvars, O, one, order, ordering, parent_type,
+                 parity, partitionseq, Perm, perm, permtype, @perm_str, polcoeff,
+                 pol_length, powmod, pow_multinomial, popov,
+                 popov_with_transform, powers, ppio, precision, preimage,
                  preimage_map, primpart, pseudo_inv, pseudodivrem, pseudorem,
                  push_term!, rank, randmat_triu, randmat_with_rank,
                  rand_ordering, rank_profile_popov, reduce!, remove,
                  renormalize!, rels, resultant, resultant_ducos, rescale!,
                  resultant_euclidean, resultant_subresultant,
                  resultant_sylvester, resx, retraction_map, reverse,
-                 reverse_rows!, reverse_cols, reverse_cols!,
                  right_kernel, rref, rref!, section_map, setcoeff!,
                  set_exponent_vector!, set_field!, set_length!, set_limit!,
-                 setpermstyle, set_precision!, set_valuation!, shift_left, shift_right,
+                 setpermstyle, set_prec!, set_val!, shift_left, shift_right,
                  show_minus_one, similarity!, size, snf, snf_kb,
                  snf_kb_with_transform, snf_with_transform, solve, solve_left,
                  solve_rational, solve_triu, sort_terms!, sub, subst, summands,
@@ -512,7 +508,6 @@ export add!, addeq!, addmul!, addmul_delayed_reduction!, addmul!, add_column, ad
                  upscale, valuation, var, var_index, vars, weak_popov,
                  weak_popov_with_transform, zero, zero!, zero_matrix,
                  @PolynomialRing, MatrixElem
-
 ################################################################################
 #
 #   Parent constructors
@@ -541,6 +536,62 @@ end
 
 function SkewDiagram(lambda::Vector{T}, mu::Vector{T}) where T
   Generic.SkewDiagram(lambda, mu)
+end
+
+#function GTPattern(rows::Array{Array{Int64,1},1})
+#    Generic.GTPattern(rows,rows[end])
+#end
+#
+#function GTPattern(rows::Array{Array{Int64,1},1}, last_row::Array{Int64,1})
+#    Generic.GTPattern(rows,last_row)
+#end
+#
+#function encontrar_posicion(Y::YoungTableau{T}, entrada::Int64) where T
+#   k=1
+#   for (idx, p) in enumerate(Y.part)
+#      for (idy, q) in Y.fill[k:k+p-1]
+#        if q == entrada
+#          return idx, idy
+#        end
+#      end
+#      k += p
+#   end
+#   0,0
+#end
+
+@doc Markdown.doc"""
+    StandardYoungTableaux(part::Array{Int64,1}) -> list of YoungTableaux
+> Return a list of Standard YoungTableaux.
+# Examples:
+```jldoctest; setup = :(using AbstractAlgebra)
+julia> StandardYoungTableaux([2,1])
+[1 3; 2 0]
+[1 2; 3 0]
+"""
+function StandardYoungTableaux(part::Array{Int64,1}) 
+    part = filter(x -> x > 0, part)
+    len = length(part)
+    flat = zeros(Int, sum(part))
+    flat[1:len] = part
+    primero = primero_lexi(YoungTableau(part))
+    lista = [deepcopy(primero)]
+    for i in 2:dim(YoungTableau(part))
+        push!(lista, deepcopy(encontrar_malo_imp!(primero)))
+    end
+    lista
+end
+#function StandardYoungTableaux(irrep::Array{Int64,1}) 
+#  patterns = genera_patrones(irrep)
+#  estandard_patrones = filter(x -> prematuro_pesos(x), patterns)
+#  map(YoungTableau, estandard_patrones)
+#end
+
+function YoungTableau(tab::GTPattern)
+    filas = tab.filas
+    len = filas[1] |> length
+    conjunto_contenido = [Generic.obtener_diferencias_patron(tab, x) for x in 1:len]
+    p = Partition(filter(x -> x>0, filas[1]))
+    Generic.YoungTableau(p, vcat(conjunto_contenido...))
 end
 
 function YoungTableau(part::Generic.Partition, tab::Array{Int, 2})
@@ -643,9 +694,6 @@ function SparsePolynomialRing(R::Ring, s::Char; cached::Bool = true)
    SparsePolynomialRing(R, string(s); cached=cached)
 end
 
-@doc (@doc Generic.LaurentPolynomialRing)
-LaurentPolynomialRing(R::Ring, s::AbstractString) = Generic.LaurentPolynomialRing(R, s)
-
 function MatrixSpace(R::Ring, r::Int, c::Int, cached::Bool = true)
    Generic.MatrixSpace(R, r, c, cached)
 end
@@ -691,11 +739,11 @@ end
 > Return the vector space over the field $R$ with the given dimension.
 """
 function VectorSpace(R::Field, dim::Int; cached::Bool = true)
-   Generic.FreeModule(R, dim; cached=cached)
+   Generic.FreeModule(R, dim)
 end
 
 function vector_space(R::Field, dim::Int; cached::Bool = true)
-   Generic.FreeModule(R, dim; cached=cached)
+   Generic.FreeModule(R, dim)
 end
 
 @doc Markdown.doc"""
@@ -784,15 +832,14 @@ end
 # add empty functions so that Singular, Nemo and Hecke can import and extend.
 function crt end
 
-function factor end
-
-export PowerSeriesRing, PolynomialRing, SparsePolynomialRing, LaurentPolynomialRing,
-       MatrixSpace, MatrixAlgebra, FractionField, ResidueRing, Partition, SymmetricGroup,
-       YoungTableau, AllParts, SkewDiagram, AllPerms, Perm, LaurentSeriesRing,
+export PowerSeriesRing, PolynomialRing, SparsePolynomialRing, MatrixSpace,
+       MatrixAlgebra, FractionField, ResidueRing, Partition, SymmetricGroup,
+       YoungTableau, GTPattern, AllParts, SkewDiagram, AllPerms, Perm, LaurentSeriesRing,
        LaurentSeriesField, ResidueField, NumberField, PuiseuxSeriesRing,
        PuiseuxSeriesField, FreeModule, VectorSpace, ModuleHomomorphism, sub,
        quo, DirectSum, ModuleIsomorphism, free_module, vector_space,
-       module_homomorphism, direct_sum, module_isomorphism, basis
+       module_homomorphism, direct_sum, module_isomorphism, basis, StandardYoungTableaux,
+       encontrar_posicion
 
 export Generic
 
@@ -834,22 +881,6 @@ include("error.jl")
 ###############################################################################
 
 include("Groups.jl")
-
-################################################################################
-#
-#   Printing
-#
-################################################################################
-
-include("PrettyPrinting.jl")
-
-################################################################################
-#
-#   Deprecations
-#
-################################################################################
-
-include("Deprecations.jl")
 
 ###############################################################################
 #

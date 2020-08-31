@@ -1,6 +1,6 @@
 module Generic
 
-import LinearAlgebra: det, issymmetric, norm,
+import LinearAlgebra: det, norm,
                       nullspace, rank, transpose!, hessenberg
 
 import LinearAlgebra: lu, lu!, tr
@@ -9,7 +9,7 @@ using Markdown, Random, InteractiveUtils
 
 import Base: Array, abs, asin, asinh, atan, atanh, axes, bin, checkbounds, cmp, conj,
              convert, copy, cos, cosh, dec, deepcopy, deepcopy_internal,
-             exponent, gcd, gcdx, getindex, hash, hcat, hex, intersect,
+             exponent, gcd, gcdx, getindex, hash, hcat, hex, intersect, inv,
              invmod, isapprox, isempty, isequal, isfinite, isless, isone, isqrt,
              isreal, iszero, lcm, ldexp, length, log, Matrix, mod, ndigits, oct, one,
              parent, parse, precision, rand, Rational, rem, reverse, setindex!,
@@ -23,22 +23,22 @@ import Base: floor, ceil, hypot, log, log1p, expm1, sin, cos, sinpi, cospi,
              acosh, sinpi, cospi
 
 import ..AbstractAlgebra: Integers, Rationals, NCRing, NCRingElem, Ring,
-                          RingElem, RingElement, Field, FieldElement,
-                          displayed_with_minus_in_front, isexact_type,
-                          isdomain_type, Map, needs_parentheses,
-                          promote_rule, show_minus_one
+                          RingElem, RingElement, Field, FieldElement, Map,
+                          promote_rule
 
-import ..AbstractAlgebra: base_ring, canonical_unit, change_base_ring, check_parent,
-                          denominator, div, divrem, exp, gen, gens, inv, isgen,
-                          ismonomial, ismonomial_recursive, isunit, lead, numerator, trail, sqrt, expressify
+import ..AbstractAlgebra: exp, sqrt, div, divrem, numerator, denominator
 
 using ..AbstractAlgebra
+
+import Primes
 
 include("generic/GenericTypes.jl")
 
 include("generic/PermGroups.jl")
 
 include("generic/YoungTabs.jl")
+
+include("generic/GTPatterns.jl")
 
 include("generic/Residue.jl")
 
@@ -51,8 +51,6 @@ include("generic/NCPoly.jl")
 include("generic/MPoly.jl")
 
 include("generic/SparsePoly.jl")
-
-include("generic/LaurentPoly.jl")
 
 include("generic/RelSeries.jl")
 

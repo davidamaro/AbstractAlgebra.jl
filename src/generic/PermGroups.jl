@@ -30,10 +30,6 @@ true
 """
 parent(g::Perm{T}) where T = SymmetricGroup(T(length(g.d)))
 
-check_parent(g::Perm, h::Perm) = length(g.d) == length(h.d) ||
-   throw(ArgumentError("incompatible permutation groups"))
-
-
 ###############################################################################
 #
 #   Low-level manipulation
@@ -400,8 +396,6 @@ false
 ###############################################################################
 function mul!(out::Perm, g::Perm, h::Perm)
    out = (out === h ? similar(out) : out)
-   check_parent(out, g)
-   check_parent(g, h)
    @inbounds for i in eachindex(out.d)
       out[i] = h[g[i]]
    end
@@ -514,11 +508,11 @@ end
 ###############################################################################
 
 @doc Markdown.doc"""
-    Base.inv(g::Perm)
+    inv(g::Perm)
 > Return the inverse of the given permutation, i.e. the permuation $g^{-1}$
 > such that $g ∘ g^{-1} = g^{-1} ∘ g$ is the identity permutation.
 """
-function Base.inv(g::Perm)
+function inv(g::Perm)
    res = similar(g)
    @inbounds for i in 1:length(res.d)
       res[g[i]] = i
@@ -980,4 +974,83 @@ end
 
 function character(::Type{T}, lambda::Partition, mu::Partition) where T<:Union{Signed, Unsigned}
    return MN1inner(partitionseq(lambda), mu, 1, _charvalsTable)
+end
+
+##############################################################################
+#
+#   Orthogonal/Yamanuichi irrep
+#
+##############################################################################
+#function individual(transp)
+#    j,k = transp
+#    for i in k:-1:j+1
+#        @show (i-1, i)
+#    end
+#    println("luego")
+#    for i in j+1:k
+#        @show (i,i+1)
+#    end
+#end
+#function descomponer_ciclo(ciclo)
+#    lista = Tuple{Int64,Int64}[]
+#    for i in 1:length(ciclo) - 1
+#        push!(lista, (ciclo[i], ciclo[i+1]))
+#    end
+#    #lista
+#    output = Tuple{Int64,Int64}[]
+#    for elem in lista
+#        individual!(elem, output)
+#    end
+#    output
+#end
+function individual!(transp,lista)
+    j,k = transp
+    if k < j
+      j,k = k,j
+    end
+    for i in k:-1:j+1
+        #@show (i-1, i)
+        push!(lista, (i-1,i))
+        #prepend!(lista, (i-1,i))
+    end
+    #println("luego")
+    for i in j+1:k-1
+        #@show (i,i+1)
+        push!(lista, (i, i+1))
+        #prepend!(lista, (i, i+1))
+    end
+end
+function descomponer_ciclo!(ciclo, output)
+    lista = Tuple{Int64,Int64}[]
+    for i in 1:length(ciclo) - 1
+        push!(lista, (ciclo[i], ciclo[i+1]))
+    end
+    #lista
+    #output = Tuple{Int64,Int64}[]
+    for elem in lista
+        individual!(elem, output)
+    end
+    #output
+end
+@doc Markdown.doc"""
+    descomp_total(g::Perm)
+> Return the adjacent transposition decomposition of 'g'
+
+```jldoctest; setup = :(using AbstractAlgebra)
+julia> G = SymmetricGroup(5); g = Perm([3,4,5,2,1])
+(1,3,5)(2,4)
+
+julia> descomp_total(g)
+true
+```
+"""
+function descomp_total(original::Perm)
+    lista_ciclos = cycles(original)
+    #@show lista_ciclos
+    completa = []
+    for elem in lista_ciclos
+        #push!(completa, descomponer_ciclo(elem))
+        descomponer_ciclo!(elem, completa)
+    end
+    completa
 end
