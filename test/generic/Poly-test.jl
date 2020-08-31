@@ -123,18 +123,13 @@ end
 
    @test deepcopy(h) == h
 
-   @test isterm_recursive(2*x*y^2)
-   @test !isterm_recursive(2*(x + 1)*y^2)
-
-   @test !isterm(2*x*y^2 + 1)
    @test isterm(2*x*y^2)
 
-   @test !ismonomial_recursive(2*x*y^2)
+   @test !ismonomial(2*x*y^2)
 
-   @test ismonomial(y^2)
+   @test ismonomial(x*y^2)
 
-   @test !ismonomial_recursive(2*x*y^2 + y + 1)
-   @test !ismonomial(2*y^2)
+   @test !ismonomial(2*x*y^2 + y + 1)
 
    @test characteristic(R) == 0
 end
@@ -1055,8 +1050,6 @@ end
 
       @test divexact(f*g, g) == f
    end
-
-   @test_throws ArgumentError divexact(x^2, x - 1)
 
    # Fake finite field of char 7, degree 2
    S, y = PolynomialRing(GF(7), "y")
@@ -2424,11 +2417,6 @@ end
    # Exact ring
    R, x = PolynomialRing(ZZ, "x")
 
-   @test_throws ErrorException remove(R(1), R(0))
-   @test_throws ErrorException remove(R(1), R(-1))
-   @test_throws ErrorException remove(R(0), R(1))
-   @test_throws ErrorException remove(R(0), R(2))
-
    for iter = 1:10
       d = true
       f = R()
@@ -2436,10 +2424,8 @@ end
       while d
          f = R()
          g = R()
-         while iszero(f) || iszero(g) || isunit(g)
-           f = rand(R, 0:10, -10:10)
-           g = rand(R, 0:10, -10:10)
-         end
+         f = rand(R, 0:10, -10:10)
+         g = rand(R, 0:10, -10:10)
 
          d, q = divides(f, g)
          if d
@@ -2448,6 +2434,10 @@ end
       end
 
       s = rand(0:10)
+
+      while iszero(g)
+        g = rand(R, 0:10, -10:10)
+      end
 
       v, q = remove(f*g^s, g)
 
@@ -2470,11 +2460,6 @@ end
    # Exact field
    R, x = PolynomialRing(QQ, "x")
 
-   @test_throws ErrorException remove(R(1), R(0))
-   @test_throws ErrorException remove(R(1), R(1))
-   @test_throws ErrorException remove(R(0), R(x))
-   @test_throws ErrorException remove(R(1), R(2))
-
    for iter = 1:10
       d = true
       f = R()
@@ -2482,7 +2467,7 @@ end
       while d
          f = R()
          g = R()
-         while f == 0 || g == 0 || isunit(g)
+         while f == 0 || g == 0
             f = rand(R, 0:10, -10:10)
             g = rand(R, 0:10, -10:10)
          end
@@ -2521,7 +2506,7 @@ end
       while d
          f = R()
          g = R()
-         while f == 0 || g == 0 || isunit(g)
+         while f == 0 || g == 0
             f = rand(R, 0:10, 0:22)
             g = rand(R, 0:10, 0:22)
          end
@@ -2559,7 +2544,7 @@ end
       while d
          f = R()
          g = R()
-         while f == 0 || g == 0 || isunit(g)
+         while f == 0 || g == 0
             f = rand(R, 0:10)
             g = rand(R, 0:10)
          end
@@ -2584,79 +2569,6 @@ end
          v, q = divides(f*g + 1, f)
 
          @test !v
-      end
-   end
-end
-
-@testset "Generic.Poly.square_root..." begin
-   # Exact ring
-   S, x = PolynomialRing(ZZ, "x")
-   for iter = 1:10
-      f = rand(S, 0:20, -20:20)
-
-      p = f^2
-
-      @test issquare(p)
-
-      q = sqrt(f^2)
-
-      @test q^2 == f^2
-
-      q = sqrt(f^2, false)
-
-      @test q^2 == f^2
-
-      if f != 0
-         @test_throws ErrorException sqrt(f^2*x)
-      end
-   end
-
-   # Exact field
-   S, x = PolynomialRing(QQ, "x")
-   for iter = 1:10
-      f = rand(S, 0:20, -20:20)
-
-      p = f^2
-
-      @test issquare(p)
-
-      q = sqrt(f^2)
-
-      @test q^2 == f^2
-
-      q = sqrt(f^2, false)
-
-      @test q^2 == f^2
-
-      if f != 0
-         @test_throws ErrorException sqrt(f^2*x)
-      end
-   end
-
-   # Characteristic p field
-   for p in [2, 7, 19, 65537, ZZ(2), ZZ(7), ZZ(19), ZZ(65537)]
-      R = ResidueField(ZZ, p)
-
-      S, x = PolynomialRing(R, "x")
-      
-      for iter = 1:10
-         f = rand(S, 0:20, 0:Int(p))
-         
-         s = f^2
-         
-         @test issquare(s)
-
-         q = sqrt(f^2)
-
-         @test q^2 == f^2
-
-         q = sqrt(f^2, false)
-
-         @test q^2 == f^2
-
-         if f != 0
-            @test_throws ErrorException sqrt(f^2*x)
-         end
       end
    end
 end
@@ -2718,5 +2630,5 @@ end
 @testset "Generic.Poly.printing..." begin
    M = MatrixAlgebra(ZZ, 3)
    _, x = M['x']
-   @test string(M(-1)*x) isa String
+   @test string(M(-1)*x) == "-x"
 end

@@ -76,6 +76,8 @@ end
 
      @test dim(N) == rank(matrix(QQ, [s[ix] for s in S, ix in 1:dim(M)]))
    end
+
+   println("PASS")
 end
 
 @testset "Generic.Submodule.unary_ops..." begin

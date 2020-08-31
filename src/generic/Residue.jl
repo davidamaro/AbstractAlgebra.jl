@@ -162,16 +162,8 @@ end
 #
 ###############################################################################
 
-function AbstractAlgebra.expressify(a::AbstractAlgebra.ResElem; context = nothing)
-   return expressify(data(a), context = context)
-end
-
-function show(io::IO, ::MIME"text/plain", a::AbstractAlgebra.ResElem)
-  print(io, AbstractAlgebra.obj_to_string(a, context = io))
-end
-
-function show(io::IO, a::AbstractAlgebra.ResElem)
-  print(io, AbstractAlgebra.obj_to_string(a, context = io))
+function show(io::IO, x::AbstractAlgebra.ResElem)
+   print(IOContext(io, :compact => true), data(x))
 end
 
 function show(io::IO, a::AbstractAlgebra.ResRing)
@@ -403,11 +395,11 @@ end
 ###############################################################################
 
 @doc Markdown.doc"""
-    Base.inv(a::AbstractAlgebra.ResElem)
+    inv(a::AbstractAlgebra.ResElem)
 > Return the inverse of the element $a$ in the residue ring. If an impossible
 > inverse is encountered, an exception is raised.
 """
-function Base.inv(a::AbstractAlgebra.ResElem)
+function inv(a::AbstractAlgebra.ResElem)
    g, ainv = gcdinv(data(a), modulus(a))
    if g != 1
       error("Impossible inverse in inv")

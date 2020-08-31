@@ -66,16 +66,6 @@ characteristic(a::Rational{T}) where T <: Integer = 0
 #
 ###############################################################################
 
-function expressify(a::Rational; context = nothing)
-    n = numerator(a)
-    d = denominator(a)
-    if isone(d)
-        return n
-    else
-        return Expr(:call, ://, n, d)
-    end
-end
-
 function show(io::IO, R::Rationals)
    print(io, "Rationals")
 end
@@ -177,16 +167,8 @@ end
 > Return the square root of $a$ if it is the square of a rational, otherwise
 > throw an error.
 """
-function sqrt(a::Rational{T}, check::Bool=true) where T <: Integer
-   return sqrt(numerator(a, check))//sqrt(denominator(a, check))
-end
-
-@doc Markdown.doc"""
-    issquare(a::Rational{T}) where T <: Integer
-> Return true if $a$ is the square of a rational.
-"""
-function issquare(a::Rational{T}) where T <: Integer
-   return issquare(numerator(a)) && issquare(denominator(a))
+function sqrt(a::Rational{T}) where T <: Integer
+   return sqrt(numerator(a))//sqrt(denominator(a))
 end
 
 ###############################################################################

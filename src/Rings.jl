@@ -93,8 +93,6 @@ divexact(x::RingElem, y::RingElement) = divexact(x, parent(x)(y))
 
 divexact(x::RingElement, y::RingElem) = divexact(parent(y)(x), y)
 
-Base.inv(x::RingElem) = divexact(one(parent(x)), x)
-
 function divides(x::T, y::T) where {T <: RingElem}
    if iszero(y)
       return iszero(x), y
@@ -212,28 +210,6 @@ function ppio(a::E, b::E) where E <: RingElem
       g = gcd(c, n)
    end
    return c, n
-end
-
-################################################################################
-#
-#   Squares
-#
-################################################################################
-
-@doc Markdown.doc"""
-    sqrt(a::FieldElem)
-> Return the square root of the element `a`.
-"""
-function Base.sqrt(a::FieldElem)
-  R = parent(a)
-  R, t = PolynomialRing(R, "t", cached = false)
-  f = factor(t^2 - a)
-  for (p, e) in f
-    if degree(p) == 1
-      return -divexact(coeff(p, 0), coeff(p, 1))
-    end
-  end
-  throw(error("Element $a does not have a square root"))
 end
 
 ###############################################################################

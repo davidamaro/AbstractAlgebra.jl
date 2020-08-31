@@ -274,7 +274,7 @@ end
 #
 ###############################################################################
 
-function Base.inv(x::GFElem{T}) where T <: Integer
+function inv(x::GFElem{T}) where T <: Integer
    x == 0 && throw(DivideError())
    R = parent(x)
    p = R.p::T

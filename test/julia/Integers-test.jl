@@ -70,8 +70,6 @@ end
       for n = 0:20
          @test r == 0 || a == powmod(r, n, modR)
          @test s == 0 || b == powmod(s, n, modS)
-         @test powmod(r, n, modR) == powmod(r, BigInt(n), modR)
-         @test powmod(s, n, modS) == powmod(s, BigInt(n), modS)
 
          a = mod(a*r, modR)
          b = mod(b*s, modS)
@@ -117,16 +115,6 @@ end
    end
 end
 
-@testset "Julia.Integers.inv..." begin
-   @test AbstractAlgebra.inv(ZZ(1)) == 1
-   @test AbstractAlgebra.inv(-ZZ(1)) == -1
-   @test AbstractAlgebra.inv(zz(1)) == 1
-   @test AbstractAlgebra.inv(-zz(1)) == -1
-
-   @test_throws ArgumentError AbstractAlgebra.inv(ZZ(2))
-   @test_throws DivideError AbstractAlgebra.inv(ZZ(0))
-end
-
 @testset "Julia.Integers.gcd..." begin
    R = zz
    S = ZZ
@@ -163,8 +151,6 @@ end
 
       @test AbstractAlgebra.sqrt(f)^2 == f
       @test AbstractAlgebra.sqrt(g)^2 == g
-      @test issquare(f)
-      @test issquare(g)
    end
 end
 

@@ -172,22 +172,23 @@ canonical_unit(a::AbstractAlgebra.FracElem) = a
 #
 ###############################################################################
 
-function AbstractAlgebra.expressify(a::FracElem; context = nothing)
-    n = numerator(a, true)
-    d = denominator(a, true)
-    if isone(d)
-        return expressify(n)
-    else
-        return Expr(:call, ://, expressify(n), expressify(d))
-    end
-end
-
-function show(io::IO, ::MIME"text/plain", a::FracElem)
-  print(io, AbstractAlgebra.obj_to_string(a, context = io))
-end
-
-function show(io::IO, a::FracElem)
-  print(io, AbstractAlgebra.obj_to_string(a, context = io))
+function show(io::IO, x::AbstractAlgebra.FracElem)
+   # Canonicalise for display
+   n = numerator(x, true)
+   d = denominator(x, true)
+   if !isone(d) && needs_parentheses(n)
+      print(io, "(")
+   end
+   print(IOContext(io, :compact => true), n)
+   if !isone(d)
+      if needs_parentheses(n)
+         print(io, ")")
+      end
+      print(io, "//")
+      print(io, "(") # always print parentheses for denoninators e.g. x//(x*y*z)
+      print(IOContext(io, :compact => true), d)
+      print(io, ")")
+   end
 end
 
 function show(io::IO, a::AbstractAlgebra.FracField)
@@ -585,10 +586,10 @@ end
 ###############################################################################
 
 @doc Markdown.doc"""
-    Base.inv(a::AbstractAlgebra.FracElem)
+    inv(a::AbstractAlgebra.FracElem)
 > Return the inverse of the fraction $a$.
 """
-function Base.inv(a::AbstractAlgebra.FracElem)
+function inv(a::AbstractAlgebra.FracElem)
    iszero(numerator(a, false)) && throw(DivideError())
    return parent(a)(deepcopy(denominator(a, false)),
                     deepcopy(numerator(a, false)))
@@ -730,29 +731,6 @@ function ^(a::AbstractAlgebra.FracElem{T}, b::Int) where {T <: RingElem}
       b = -b
    end
    return parent(a)(numerator(a)^b, denominator(a)^b)
-end
-
-###############################################################################
-#
-#   Square root
-#
-###############################################################################
-
-@doc Markdown.doc"""
-    issquare(a::AbstractAlgebra.FracElem{T}) where T <: RingElem
-> Return `true` if $a$ is a square.
-"""
-function issquare(a::AbstractAlgebra.FracElem{T}) where T <: RingElem
-   return issquare(numerator(a)) && issquare(denominator(a))
-end
-
-@doc Markdown.doc"""
-    Base.sqrt(a::AbstractAlgebra.FracElem{T}) where T <: RingElem
-> Return the square root of $a$ if it is a square, otherwise raise an
-> exception.
-"""
-function Base.sqrt(a::AbstractAlgebra.FracElem{T}) where T <: RingElem
-   return parent(a)(sqrt(numerator(a)), sqrt(denominator(a)))
 end
 
 ###############################################################################

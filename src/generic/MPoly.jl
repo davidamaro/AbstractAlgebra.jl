@@ -645,24 +645,6 @@ function monomial_divides!(A::Array{UInt, 2}, i::Int, B::Array{UInt, 2}, j1::Int
    return flag
 end
 
-# Return true is the j-th exponent vector of the array B can be halved
-# If so the i-th exponent i-th exponent vector of A is set to the half
-function monomial_halves!(A::Array{UInt, 2}, i::Int, B::Array{UInt, 2}, j::Int, mask::UInt, N::Int)
-   flag = true
-   for k = 1:N
-      b = reinterpret(Int, B[k, j])
-      if isodd(b)
-         flag = false
-      else
-         A[k, i] = reinterpret(UInt, div(b, 2))
-      end
-      if A[k, i] & mask != 0
-         flag = false
-      end
-   end
-   return flag
-end
-
 # Return true if the i-th exponent vector of the array A is in an overflow
 # condition. Note that a mask must be supplied which has 1's in all bit
 # positions that correspond to an overflow of the corresponding exponent field.
@@ -1258,29 +1240,71 @@ end
 #
 ###############################################################################
 
-function expressify(a::MPolyElem, x = symbols(parent(a)); context = nothing)
-   sum = Expr(:call, :+)
-   n = nvars(parent(a))
-   for (c, v) in zip(coeffs(a), exponent_vectors(a))
-      prod = Expr(:call, :*, expressify(c, context = context))
-      for i in 1:n
-         if v[i] > 1
-            push!(prod.args, Expr(:call, :^, x[i], v[i]))
-         elseif v[i] == 1
-            push!(prod.args, x[i])
-         end
-      end
-      push!(sum.args, prod)
-   end
-   return sum
+function _show(io::IO, x::MPoly, U::Array{<: AbstractString, 1})
+    len = length(x)
+    if len == 0
+      print(io, base_ring(x)(0))
+    else
+      N = parent(x).N
+      ord = parent(x).ord
+      for i = 1:len
+        c = coeff(x, i)
+        bracket = needs_parentheses(c)
+        if i != 1 && !displayed_with_minus_in_front(c)
+          print(io, "+")
+        end
+        X = zeros(UInt, N, 1)
+        if ord == :degrevlex
+           monomial_reverse!(X, 1, x.exps, i, N)
+        else
+           monomial_set!(X, 1, x.exps, i, N)
+        end
+        if !isone(c) && (c != -1 || show_minus_one(typeof(c)))
+          if bracket
+            print(io, "(")
+          end
+          print(io, c)
+          if bracket
+            print(io, ")")
+          end
+          if c != 1 && !(c == -1 && !show_minus_one(typeof(c))) && !monomial_iszero(X, 1, N)
+             print(io, "*")
+          end
+        end
+        if c == -1 && !show_minus_one(typeof(c))
+          print(io, "-")
+        end
+        num_vars = nvars(parent(x))
+        if monomial_iszero(X, 1, N)
+          if c == 1
+             print(io, c)
+          elseif c == -1 && !show_minus_one(typeof(c))
+             print(io, -c)
+          end
+        end
+        fst = true
+        for j = 1:nvars(parent(x))
+          n = reinterpret(Int, X[num_vars - j + 1, 1])
+          if n != 0
+            if fst
+               print(io, U[j])
+               fst = false
+            else
+               print(io, "*", U[j])
+            end
+            if n != 1
+              print(io, "^", n)
+            end
+          end
+        end
+    end
+  end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", a::MPolyElem)
-  print(io, AbstractAlgebra.obj_to_string(a, context = io))
-end
-
-function Base.show(io::IO, a::MPolyElem)
-  print(io, AbstractAlgebra.obj_to_string(a, context = io))
+function show(io::IO, x::MPoly)
+   len = length(x)
+   U = [string(x) for x in symbols(parent(x))]
+   _show(IOContext(io, :compact => true), x, U)
 end
 
 function show(io::IO, p::MPolyRing)
@@ -2022,277 +2046,6 @@ function *(a::MPoly{T}, b::MPoly{T}) where {T <: RingElement}
       er = r1.exps
    end
    return parent(a)(r1.coeffs, er)
-end
-
-###############################################################################
-#
-#   Square root
-#
-###############################################################################
-
-function sqrt_classical_char2(a::MPoly{T}) where {T <: RingElement}
-   par = parent(a)
-   m = length(a)
-   if m == 0
-      return true, par()
-   end
-   # number of words in (possibly packed) exponent
-   N = size(a.exps, 1)
-   # compute mask
-   bits = sizeof(Int)*8
-   mask = UInt(1) << (bits - 1)
-   # alloc arrays for result coeffs/exps
-   Qc = Array{T}(undef, m)
-   Qe = zeros(UInt, N, m)
-   # compute square root
-   for i = 1:m
-      d1 = monomial_halves!(Qe, i, a.exps, i, mask, N)
-      d2 = issquare(a.coeffs[i])
-      if !d1 || !d2
-         return false, par()
-      end
-      Qc[i] = sqrt(a.coeffs[i])
-   end
-   return true, par(Qc, Qe) # return result
-end
-
-function sqrt_heap(a::MPoly{T}, bits::Int, check::Bool=true) where {T <: RingElement}
-   par = parent(a)
-   R = base_ring(par)
-   m = length(a)
-   if m == 0
-      return true, par()
-   end 
-   # ordering mask
-   drmask = monomial_drmask(par, bits)
-   # mask for checking for overflows in halves!
-   mask1 = UInt(1) << (bits - 1)
-   mask = UInt(0)
-   for i = 1:div(sizeof(UInt)*8, bits)
-      mask = (mask << bits) + mask1
-   end
-   # number of words in (possibly packed) exponent
-   N = size(a.exps, 1)
-   # Initialise heap
-   H = Array{heap_s}(undef, 0)
-   I = Array{heap_t}(undef, 0)
-   viewc = 1
-   Viewn = [1, 2]
-   viewalloc = 2
-   Exps = zeros(UInt, N, 2)
-   # set up heap
-   if m > 1
-      vw = Viewn[viewc]
-      viewc += 1
-      monomial_set!(Exps, vw, a.exps, 2, N)
-      push!(H, heap_s(vw, 1))
-      push!(I, heap_t(0, 2, 0))
-   end
-   # number of result terms
-   k = 1
-   # alloc arrays for result coeffs/exps
-   q_alloc = Int(floor(Base.sqrt(m)) + 1)
-   Qc = Array{T}(undef, q_alloc)
-   Qe = zeros(UInt, N, q_alloc)
-   # temporary for addmul
-   c = R()
-   # for accumulation of cross multiplications
-   qc = R()
-   # for multiplication by -1 in addmul
-   m1 = -R(1)
-   # Queue for processing next nodes into heap
-   Q = zeros(Int, 0)
-   reuse = zeros(Int, 0)
-   # get leading coeff of sqrt
-   d1 = monomial_halves!(Qe, 1, a.exps, 1, mask, N)
-   d2 = issquare(a.coeffs[1])
-   if !d1 || !d2
-      return false, par()
-   end
-   Qc[1] = sqrt(a.coeffs[1])
-   mb = -2*Qc[1]
-   # if exact sqrt is not checked, compute last exponent that needs dealing with
-   if !check
-      Fe = zeros(UInt, N, 1)
-      monomial_halves!(Fe, 1, a.exps, m, mask, N)
-      monomial_add!(Fe, 1, Fe, 1, Qe, 1, N)
-   end
-   # while the heap is not empty
-   @inbounds while !isempty(H)
-      # get next exponent from heap
-      exp = H[1].exp
-      # make space for additional result term
-      k += 1
-      if k > q_alloc
-         q_alloc *= 2
-         resize!(Qc, q_alloc)
-         Qe = resize_exps!(Qe, q_alloc)
-      end
-      # check if next heap exponent is divisible by leading term
-      d1 = monomial_divides!(Qe, k, Exps, exp, Qe, 1, mask, N)
-      do_coeffs = check || d1
-      # deal with each heap chain matching exp
-      @inbounds while !isempty(H) && monomial_isequal(Exps, H[1].exp, exp, N)
-         # get first node from heap chain
-         x = H[1]
-         viewc -= 1
-         Viewn[viewc] = heappop!(H, Exps, N, par, drmask)
-         v = I[x.n]
-         if do_coeffs
-            if v.i == 0 # term from original poly
-               qc = addmul_delayed_reduction!(qc, a.coeffs[v.j], m1, c)
-            elseif v.i == v.j # term from cross multiplication
-               qc = addmul_delayed_reduction!(qc, Qc[v.i], Qc[v.j], c)
-            else
-               c = mul_red!(c, Qc[v.i], Qc[v.j], false) # qc += 2*Q[i]*Q[j]
-               qc = addeq!(qc, c)
-               qc = addeq!(qc, c)
-            end
-         end
-         # decide whether node needs processing or reusing
-         if v.i != 0 || v.j < m
-            push!(Q, x.n)
-         else
-            push!(reuse, x.n)
-         end
-         # deal with other nodes in current chain
-         while (xn = v.next) != 0
-            v = I[xn]
-            if do_coeffs
-               if v.i == 0 # term from original poly
-                  qc = addmul_delayed_reduction!(qc, a.coeffs[v.j], m1, c)
-               elseif v.i == v.j # term from cross multiplication
-                  qc = addmul_delayed_reduction!(qc, Qc[v.i], Qc[v.j], c)
-               else
-                  c = mul_red!(c, Qc[v.i], Qc[v.j], false) # qc += 2*Q[i]*Q[j]
-                  qc = addeq!(qc, c)
-                  qc = addeq!(qc, c)
-               end
-            end
-            # decide whether node needs processing or reusing
-            if v.i != 0 || v.j < m
-               push!(Q, xn)
-            else
-               push!(reuse, xn)
-            end
-         end
-      end
-      # reduction was delayed, do it now
-      if do_coeffs
-         qc = reduce!(qc)
-      end
-      # put next items into heap by processing Q
-      @inbounds while !isempty(Q)
-         # get iterm from Q
-         xn = pop!(Q)
-         v = I[xn]
-         if v.i == 0 # term from original poly
-            # put next poly term in heap
-            I[xn] = heap_t(0, v.j + 1, 0)
-            vw = Viewn[viewc]
-            monomial_set!(Exps, vw, a.exps, v.j + 1, N)
-            if check || monomial_cmp(Exps, vw, Fe, 1, N, par, drmask) >= 0
-               if heapinsert!(H, I, xn, vw, Exps, N, par, drmask) # either chain or insert into heap
-                  viewc += 1
-               end
-            end
-         elseif v.j < v.i # term from cross mult
-            # i, j -> i, j + 1 and put on heap
-            I[xn] = heap_t(v.i, v.j + 1, 0)
-            vw = Viewn[viewc]
-            monomial_add!(Exps, vw, Qe, v.i, Qe, v.j + 1, N)
-            if check || monomial_cmp(Exps, vw, Fe, 1, N, par, drmask) >= 0
-               if heapinsert!(H, I, xn, vw, Exps, N, par, drmask) # either chain or insert into heap
-                  viewc += 1
-               end
-            end
-         elseif v.j == k - 1 || v.j >= v.i # no new term to add
-            push!(reuse, xn)
-         end
-      end
-      # if terms from heap combine to zero, remove new result term
-      if qc == 0
-         k -= 1
-      else
-         # if not, check the accumulation is divisible by leading coeff
-         d2, Qc[k] = divides(qc, mb)
-         if !d1 || !d2 # if accumulation term is not divisible, return false
-            return false, par()
-         end
-         viewalloc += 1
-         push!(Viewn, viewalloc)
-         Exps = resize_exps!(Exps, viewalloc)
-         if !isempty(reuse) # if we have nodes in cache that we can reuse
-            xn = pop!(reuse)
-            I[xn] = heap_t(k, 2, 0) # put (k, 2) on heap
-            vw = Viewn[viewc]
-            monomial_add!(Exps, vw, Qe, k, Qe, 2, N)
-            if check || monomial_cmp(Exps, vw, Fe, 1, N, par, drmask) >= 0
-               if heapinsert!(H, I, xn, vw, Exps, N, par, drmask) # either chain or insert into heap
-                  viewc += 1
-               end
-            end
-         else # create new node
-            push!(I, heap_t(k, 2, 0)) # put (k, 2) on heap
-            vw = Viewn[viewc]
-            monomial_add!(Exps, vw, Qe, k, Qe, 2, N)
-            if check || monomial_cmp(Exps, vw, Fe, 1, N, par, drmask) >= 0
-               if heapinsert!(H, I, length(I), vw, Exps, N, par, drmask)
-                  viewc += 1
-              end
-            end
-         end
-      end
-      qc = zero!(qc) # clear qc
-   end
-   resize!(Qc, k) # don't waste so much memory with result
-   Qe = resize_exps!(Qe, k)
-   return true, parent(a)(Qc, Qe) # return result
-end
-
-function sqrt_heap(a::MPoly{T}, check::Bool=true) where {T <: RingElement}
-   if characteristic(base_ring(a)) == 2
-      return sqrt_classical_char2(a)
-   end
-   v, d = max_fields(a)
-   exp_bits = 8
-   max_e = 2^(exp_bits - 1)
-   while d >= max_e
-      exp_bits *= 2
-      if exp_bits == sizeof(Int)*8
-         break
-      end
-      max_e = 2^(exp_bits - 1)
-   end
-   word_bits = sizeof(Int)*8
-   k = div(word_bits, exp_bits)
-   N = parent(a).N
-   if k != 1
-      M = div(N + k - 1, k)
-      e1 = zeros(UInt, M, length(a))
-      pack_monomials(e1, a.exps, k, exp_bits, length(a))
-      par = MPolyRing{T}(base_ring(a), parent(a).S, parent(a).ord, M, false)
-      a1 = par(a.coeffs, e1)
-      a1.length = a.length
-      flag, q = sqrt_heap(a1, exp_bits, check)
-      eq = zeros(UInt, N, length(q))
-      unpack_monomials(eq, q.exps, k, exp_bits, length(q))
-   else
-      flag, q = sqrt_heap(a, exp_bits, check)
-      eq = q.exps
-   end
-   return flag, parent(a)(q.coeffs, eq)
-end
-
-function Base.sqrt(a::MPoly{T}, check::Bool=true) where {T <: RingElement}
-   flag, q = sqrt_heap(a, check)
-   !flag && error("Not a square in square root")
-   return q
-end
-
-function issquare(a::MPoly{T}) where {T <: RingElement}
-   flag, q = sqrt_heap(a)
-   return flag
 end
 
 ###############################################################################
@@ -3853,10 +3606,8 @@ function evaluate(a::AbstractAlgebra.MPolyElem{T}, vals::Vector{U}) where {T <: 
    # to optimise computing new powers in any way.
    # Note that this function accepts values in a non-commutative ring, so operations
    # must be done in a certain order.
-   # But addition is associative.
    S = parent(one(R)*one(parent(vals[1])))
-   r = elem_type(S)[zero(S)]
-   i = UInt(1)
+   r = zero(S)
    cvzip = zip(coeffs(a), exponent_vectors(a))
    for (c, v) in cvzip
       t = one(S)
@@ -3870,19 +3621,9 @@ function evaluate(a::AbstractAlgebra.MPolyElem{T}, vals::Vector{U}) where {T <: 
          end
          t = t*powers[j][exp]
       end
-      push!(r, c*t)
-      j = i = i + 1
-      while iseven(j) && length(r) > 1
-          top = pop!(r)
-          r[end] = addeq!(r[end], top)
-          j >>>= 1
-      end
+      r = addeq!(r, c*t)
    end
-   while length(r) > 1
-      top = pop!(r)
-      r[end] = addeq!(r[end], top)
-   end
-   return r[1]
+   return r
 end
 
 @doc Markdown.doc"""

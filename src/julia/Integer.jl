@@ -52,10 +52,6 @@ characteristic(::Integers{T}) where T <: Integer = 0
 #
 ###############################################################################
 
-function expressify(a::Integer; context = nothing)
-    return a
-end
-
 function show(io::IO, R::Integers)
    print(io, "Integers")
 end
@@ -127,29 +123,6 @@ function powmod(a::T, b::Int, c::T) where T <: Integer
    end
 end
 
-function powmod(a::T, b::BigInt, c::T) where T <: Integer
-   b < 0 && throw(DomainError(b, "exponent must be >= 0"))
-   # special cases
-   if a == 0
-      return T(0)
-   elseif b == 0
-      return T(1)
-   else
-      n = ndigits(b; base = 2)
-      bit = BigInt(1) << (n - 1)
-      z = mod(a, c)
-      bit >>= 1
-      while bit != 0
-         z = mod(z*z, c)
-         if (bit & b) != 0
-            z = mod(z*a, c)
-         end
-         bit >>= 1
-      end
-      return z
-   end
-end
-
 ###############################################################################
 #
 #   Divides
@@ -175,22 +148,6 @@ end
 
 ###############################################################################
 #
-#   Inverse
-#
-###############################################################################
-
-function inv(a::T) where T <: Integer
-   if a == 1
-      return one(T)
-   elseif a == -1
-      return -one(T)
-   end
-   iszero(a) && throw(DivideError())
-   throw(ArgumentError("not a unit"))
-end
-
-###############################################################################
-#
 #   GCD
 #
 ###############################################################################
@@ -209,25 +166,12 @@ end
 @doc Markdown.doc"""
     sqrt(a::T) where T <: Integer
 > Return the integer square root of $a$. If $a$ is not a perfect square an
-> exception is thrown. If `check` is set to `false` this check is not
-> performed.
+> error is thrown.
 """
-function sqrt(a::T, check::Bool=true) where T <: Integer
+function sqrt(a::T) where T <: Integer
    s = isqrt(a)
-   (check && s*s != a) && error("Not a square in sqrt")
+   s*s != a && error("Not a square in sqrt")
    return s
-end
-
-@doc Markdown.doc"""
-    issquare(a::T) where T <: Integer
-> Return true if $a$ is a square.
-"""
-function issquare(a::T) where T <: Integer
-   if a < 0
-      return false
-   end
-   s = isqrt(a)
-   return a == s*s
 end
 
 ###############################################################################

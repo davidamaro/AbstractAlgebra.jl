@@ -255,16 +255,16 @@ function rescale!(a::PuiseuxSeriesElem)
    if !iszero(a)
       d = gcd(a.scale, gcd(scale(a.data), gcd(valuation(a.data), precision(a.data))))
       if d != 1
-         a.data = set_scale!(a.data, div(scale(a.data), d))
-         a.data = set_precision!(a.data, AbstractAlgebra.div(precision(a.data), d))
-         a.data = set_valuation!(a.data, AbstractAlgebra.div(valuation(a.data), d))
+         set_scale!(a.data, div(scale(a.data), d))
+         set_prec!(a.data, AbstractAlgebra.div(precision(a.data), d))
+         set_val!(a.data, AbstractAlgebra.div(valuation(a.data), d))
          a.scale = div(a.scale, d)
       end
    else
       d = gcd(precision(a.data), a.scale)
       if d != 1
-         a.data = set_precision!(a.data, AbstractAlgebra.div(precision(a.data), d))
-         a.data = set_valuation!(a.data, AbstractAlgebra.div(valuation(a.data), d))
+         set_prec!(a.data, AbstractAlgebra.div(precision(a.data), d))
+         set_val!(a.data, AbstractAlgebra.div(valuation(a.data), d))
          a.scale = div(a.scale, d)
       end
    end
@@ -285,51 +285,53 @@ end
 #
 ###############################################################################
 
-function AbstractAlgebra.expressify(a::PuiseuxSeriesElem,
-                                    x = var(parent(a)); context = nothing)
-    b = a.data
-    v = valuation(b)
-    len = pol_length(b)
-    den = a.scale
-    sc = scale(b)
-
-    sum = Expr(:call, :+)
-
-    for i in 0:len - 1
-        c = polcoeff(b, i)
-        expo = (i * sc + v)//den
-        if isone(denominator(expo)) 
-          expo_expr = expressify(numerator(expo))
-        else
-          expo_expr = expressify(expo)
-        end
-        if !iszero(c)
-            if expo == 0
-                xk = 1
-            elseif expo == 1
-                xk = x
-            else
-                xk = Expr(:call, :^, x, expo_expr)
+function show(io::IO, x::PuiseuxSeriesElem)
+   len = pol_length(x.data)
+   if len == 0
+      print(IOContext(io, :compact => true), zero(base_ring(x)))
+   else
+      coeff_printed = false
+      sc = scale(x.data)
+      den = x.scale
+      for i = 0:len - 1
+         c = polcoeff(x.data, i)
+         bracket = needs_parentheses(c)
+         if !iszero(c)
+            if coeff_printed && !displayed_with_minus_in_front(c)
+               print(io, "+")
             end
-            if isone(c)
-                push!(sum.args, Expr(:call, :*, xk))
+            if i*sc + valuation(x.data) != 0
+               if !isone(c) && (c != -1 || show_minus_one(elem_type(base_ring(x))))
+                  if bracket
+                     print(io, "(")
+                  end
+                  print(IOContext(io, :compact => true), c)
+                  if bracket
+                     print(io, ")")
+                  end
+                  if i*sc + valuation(x.data) != 0
+                     print(io, "*")
+                  end
+               end
+               if c == -1 && !show_minus_one(elem_type(base_ring(x)))
+                  print(io, "-")
+               end
+               print(io, string(var(parent(x.data))))
+               if (i*sc + valuation(x.data))//den != 1
+                  print(io, "^")
+                  q = (valuation(x.data) + i*sc)//den
+                  print(IOContext(io, :compact => true), denominator(q) == 1 ? numerator(q) : q)
+               end
             else
-                push!(sum.args, Expr(:call, :*, expressify(c, context = context), xk))
+               print(IOContext(io, :compact => true), c)
             end
-        end
-    end
-    q = precision(b)//a.scale
-    qexp = isone(denominator(q)) ? expressify(numerator(q)) : expressify(q)
-    push!(sum.args, Expr(:call, :O, Expr(:call, :^, x, qexp)))
-    return sum
-end
-
-function Base.show(io::IO, ::MIME"text/plain", a::PuiseuxSeriesElem)
-  print(io, AbstractAlgebra.obj_to_string(a, context = io))
-end
-
-function Base.show(io::IO, a::PuiseuxSeriesElem)
-  print(io, AbstractAlgebra.obj_to_string(a, context = io))
+            coeff_printed = true
+         end
+      end
+   end
+   q = precision(x.data)//x.scale
+   print(IOContext(io, :compact => true), "+O(", string(var(parent(x.data))), "^", denominator(q) == 1 ? numerator(q) :
+ q, ")")
 end
 
 function show(io::IO, a::PuiseuxSeriesRing)
@@ -475,12 +477,7 @@ end
 #
 ###############################################################################
 
-@doc Markdown.doc"""
-   Base.inv(a::PuiseuxSeriesElem{T}) where T <: RingElement
-> Return the inverse of the power series $a$, i.e. $1/a$, if it exists.
-> Otherwise an exception is raised.
-"""
-function Base.inv(a::PuiseuxSeriesElem{T}) where T <: RingElement
+function inv(a::PuiseuxSeriesElem{T}) where T <: RingElement
    z = parent(a)(inv(a.data), a.scale)
    z = rescale!(z)
    return z
@@ -622,7 +619,7 @@ end
 
 function zero!(a::PuiseuxSeriesElem{T}) where T <: RingElement
    zero!(a.data)
-   a = set_scale(a, 1)
+   set_scale(a, 1)
    return a
 end
 
