@@ -367,7 +367,7 @@ import .Generic: add!, addeq!, addmul!, add_column, add_column!, add_row,
                  hnf_minors, hnf_minors_with_transform,
                  hnf_with_transform, hnf_via_popov,
                  hnf_via_popov_with_transform, 
-                 GTPattern, genera_patrones, prematuro_pesos,
+                 GTPattern, basis_states, 
                  Θ, tablon_standar_asociado_a_semiestandar,
                  primero_lexi, encontrar_esquina, encontrar_malo_imp!,
                  determinar_coeficiente_irrep_yamanouchi, generar_matriz, indice_tablon_semistandard,
@@ -452,7 +452,7 @@ export add!, addeq!, addmul!, addmul_delayed_reduction!, addmul!, add_column, ad
                  hnf_minors, hnf_minors_with_transform,
                  hnf_with_transform, hnf_via_popov,
                  hnf_via_popov_with_transform,
-                 GTPattern, genera_patrones, prematuro_pesos,
+                 GTPattern, basis_states,
                  Θ, tablon_standar_asociado_a_semiestandar,
                  primero_lexi, encontrar_esquina, encontrar_malo_imp!,
                  determinar_coeficiente_irrep_yamanouchi, generar_matriz, indice_tablon_semistandard,
@@ -581,7 +581,7 @@ function StandardYoungTableaux(part::Array{Int64,1})
     lista
 end
 #function StandardYoungTableaux(irrep::Array{Int64,1}) 
-#  patterns = genera_patrones(irrep)
+#  patterns = basis_states(irrep)
 #  estandard_patrones = filter(x -> prematuro_pesos(x), patterns)
 #  map(YoungTableau, estandard_patrones)
 #end

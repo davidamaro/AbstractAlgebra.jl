@@ -1,7 +1,7 @@
 #export Partition, AllParts, YoungTableau, SkewDiagram
 #export rowlength, collength, hooklength, dim, isrimhook, leglength, axialdistance
 export GTPattern
-export genera_patrones, obtener_diferencias_patron, prematuro_pesos#, YoungTableau
+export basis_states, obtener_diferencias_patron#, prematuro_pesos#, YoungTableau
 
 
 using Base.Iterators
@@ -27,6 +27,10 @@ using Base.Iterators
 mutable struct GTPattern
     filas::Array{Array{Int64,1},1}
     ultima_fila::Array{Int64,1}
+    function GTPattern(filas::Array{Array{Int64,1},1})
+      final = filas[end]
+      new(filas, final)
+    end
 end
 
 function Base.show(io::IO, ::MIME"text/plain", G::GTPattern)
@@ -114,7 +118,7 @@ function generar_siguiente_fila(tabs::Array{GTPattern,1})
     lista_patrones
 end
 
-function genera_patrones(irrep::Array{Int64,1})
+function basis_states(irrep::Array{Int64,1})
     ejemplo = GTPattern([], [])
     primera!(irrep, ejemplo)
     multitud_prueba = generar_siguiente_fila(ejemplo);
