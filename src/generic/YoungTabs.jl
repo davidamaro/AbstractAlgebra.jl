@@ -10,6 +10,8 @@ using Primes
 
 import LinearAlgebra:  dot, I
 import Combinatorics:  permutations
+
+const Content = Vector{T} where T <: Integer
 #using LinearAlgebra
 
 ##############################################################################
@@ -1377,11 +1379,20 @@ function content(p::YoungTableau)
     [count(y -> x == y,relleno) for x in 1:len]
 end
 
-function calcular_sα(contenido::Array{Int64,1})
+@doc Markdown.doc"""
+    calcular_sα(c::Content)
+> Return the size of the vector which represents the partition.
+
+# Examples:
+```
+julia> c = [0,1,2]; calcular_sα(c)
+```
+"""
+function calcular_sα(c::Content)
     inferior = 1
-    superior = length(contenido) 
+    superior = length(c) 
     list_perm_output = Perm{Int64}[]
-    for sub_cjto in contenido
+    for sub_cjto in c
         if sub_cjto == 0
             continue
         elseif sub_cjto == 1
