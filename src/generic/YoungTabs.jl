@@ -12,6 +12,7 @@ import LinearAlgebra:  dot, I
 import Combinatorics:  permutations
 
 const Content = Vector{T} where T <: Integer
+const Irrep = Vector{T} where T <: Integer
 #using LinearAlgebra
 
 ##############################################################################
@@ -1350,14 +1351,30 @@ function generate_dictionary(lista)
     fvars
 end
 
-function content(p::YoungTableau, irrep::Array{Int64,1})
-    relleno = p.fill
-    if length(relleno) <= length(irrep)
-      len = length(irrep)
+@doc Markdown.doc"""
+    content(p::Partition, λ::Irrep)
+> Return the size of the vector which represents the partition.
+> ADVERTENCIA content sin λ ignora los 0s de la irrep.
+
+# Examples:
+```jldoctest; setup = :(using AbstractAlgebra)
+julia> ss = YoungTableau(GTPattern([[2,1,0,0],[2,1,0],[2,1],[2]]));
+julia> content(ss, [2,1,0,0])
+[2,2,0,0]
+
+julia> ss = YoungTableau(GTPattern([[2,1,0,0],[2,1,0],[2,1],[2]]));
+julia> content(ss, [2,1,0,0])
+[2,2,0]
+```
+"""
+function content(y::YoungTableau, λ::Irrep)
+    relleno = y.fill
+    if length(relleno) <= length(λ)
+      len = length(λ)
     else
       len = length(relleno)
     end
-    tablon_nuevo = tablon_standar_asociado_a_semiestandar(p).fill
+    tablon_nuevo = tablon_standar_asociado_a_semiestandar(y).fill
     nuevo_relleno = deepcopy(relleno)
     anterior = relleno[1]
     for i in 1:len
