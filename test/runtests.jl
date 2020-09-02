@@ -20,4 +20,11 @@ end
 @testset "contenido: content" begin
    ss = GTPattern([[2,1,0,0],[2,1,0],[2,1],[2]]) |> YoungTableau
    @test content(ss, [2,1,0,0]) == [2,2,0,0]
+   ss = GTPattern([[2,1,0,0],[2,1,0],[2,1],[2]]) |> YoungTableau
+   @test content(ss) == [2,1,0]
+   @test content(ss) |> length == sum([2,1,0])
+
+   t = YoungTableau([3,1]);
+   fill!(t, [1,1,2,2]);
+   @test t |> content |> length == sum([3,1])
 end
