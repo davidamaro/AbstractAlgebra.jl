@@ -27,10 +27,10 @@ using Base.Iterators
 mutable struct GTPattern
     filas::Array{Array{Int64,1},1}
     ultima_fila::Array{Int64,1}
-    function GTPattern(filas::Array{Array{Int64,1},1})
-      final = filas[end]
-      new(filas, final)
-    end
+#    function GTPattern(filas::Array{Array{Int64,1},1})
+#      final = filas[end]
+#      new(filas, final)
+#    end
 end
 
 function Base.show(io::IO, ::MIME"text/plain", G::GTPattern)
