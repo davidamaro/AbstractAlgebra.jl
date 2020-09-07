@@ -1425,7 +1425,7 @@ function calcular_sα(c::Content)
             inferior += sub_cjto
         else
             conjunto = collect(inferior:(inferior + sub_cjto - 1))
-            permutaciones = permutations(conjunto) |> collect
+            permutaciones = permutations(conjunto)
 
             tmp = Perm{Int64}[]
             for p in permutaciones
@@ -1449,7 +1449,7 @@ end
 function calcular_sα(tablon::YoungTableau)
   contenido = content(tablon)
   inferior = 1
-  superior = length(contenido) #ponele
+  superior = length(contenido)
   list_perm_output = Perm[]
   for sub_cjto in contenido
       if sub_cjto == 0
@@ -1458,7 +1458,7 @@ function calcular_sα(tablon::YoungTableau)
           inferior += 1
       elseif sub_cjto > 1
           conjunto = collect(inferior:(inferior + sub_cjto - 1))
-          permutaciones = permutations(conjunto) |> collect
+          permutaciones = permutations(conjunto)
 
           for p in permutaciones
               lista = vcat(collect(1:inferior - 1), p, collect((inferior + sub_cjto):superior))
