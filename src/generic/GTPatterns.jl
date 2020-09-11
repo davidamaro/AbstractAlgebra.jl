@@ -2,6 +2,7 @@
 #export rowlength, collength, hooklength, dim, isrimhook, leglength, axialdistance
 export GTPattern
 export basis_states, obtener_diferencias_patron#, prematuro_pesos#, YoungTableau
+import Base.isvalid
 
 
 using Base.Iterators
@@ -180,3 +181,54 @@ end
 #    p = Partition(filter(x -> x>0, filas[1]))
 #    YoungTableau(p, vcat(conjunto_contenido...))
 #end
+function isvalid(x::GTPattern)
+    rows = x.filas
+    for mayor in 1:length(rows)-1
+        arriba = rows[mayor]
+        abajo = rows[mayor+1]
+        
+        for (i,px) in enumerate(abajo)
+            if !(px <= arriba[i] && px >= arriba[i+1])
+                
+                return false
+            end
+        end
+    end
+    true
+end
+function siguiente(x::GTPattern)
+    fila, col = disminuible(x)
+    rows = deepcopy(x.filas)
+
+    rows[fila][col] -= 1
+
+    for j in col+1:length(rows[fila])
+        rows[fila][j] = rows[fila-1][j]
+    end
+
+
+    for fil in fila+1:length(rows)
+        for co in 1:length(rows[fil])
+
+            rows[fil][co] = rows[fil-1][co]
+        end
+    end
+    GTPattern(rows,rows[end])
+end
+function disminuible(x::GTPattern)
+    rows = deepcopy(x.filas)
+    for j in length(rows):-1:2
+        for (i,val) in enumerate(rows[j])
+            if rows[j][i] == 0
+                continue
+            end
+            rows[j][i] -= 1
+            if isvalid(GTPattern(rows, rows[end]))
+                return j,i
+            else
+                rows[j][i] += 1
+            end
+        end
+    end
+    return nothing
+end
